@@ -2,6 +2,7 @@ local Admins = {}
 local Bypass = {}
 local BannedPlayerList = {} -- Syntax: PlayerName = {Reason, Banner, Asset}
 
+local Sets = {1103767}
 
 local InsertService = Game:GetService("InsertService")
 local MarketplaceService = Game:GetService("MarketplaceService")
