@@ -1,0 +1,150 @@
+local Admins = {}
+local Bypass = {}
+local BannedPlayerList = {} -- Syntax: PlayerName = {Reason, Banner, Asset}
+
+
+local InsertService = Game:GetService("InsertService")
+local MarketplaceService = Game:GetService("MarketplaceService")
+
+function explode(div,str) -- credit: http://richard.warburton.it
+  if (div=='') then return false end
+  local pos,arr = 0,{}
+  -- for each divider found
+  for st,sp in function() return string.find(str,div,pos,true) end do
+    table.insert(arr,string.sub(str,pos,st-1)) -- Attach chars left of current divider
+    pos = sp + 1 -- Jump past current divider
+  end
+  table.insert(arr,string.sub(str,pos)) -- Attach chars right of last divider
+  return arr
+end
+
+--[[
+@author: abaw7
+@name: UserHasSet
+@param: Int Id, Id of the set in question 
+@returns: Bool UserHasSet
+]]
+function UserHasSet(Id)
+	for i,v in pairs(InsertService:GetUserSets(game.CreatorId)) do
+		if v["AssetSetId"] == Id then
+			return true
+		end
+	end
+	return false
+end
+local BanAssets = {}
+--[[
+@author: abaw7
+@name: GetBanAssets
+@desc: Adds assets to the BanAssets table
+]]
+function GetBanAssets()
+	for i,v in pairs(Sets) do
+		if UserHasSet(v) then
+			for j,k in pairs(InsertService:GetCollection(Id)) do
+				BanAssets[#BanAssets + 1] = k.AssetId
+			end
+		end
+	end
+end
+--[[
+@author: abaw7
+@name: GetBannedList
+@desc: Adds to the BannedList table
+]]
+local BannedAssetList = {}
+function GetBannedList()
+	for Index, Asset in pairs(BanAssets) do
+		local Info = MarketplaceService:GetProductInfo(Asset)
+		local Desc = Info["Description"]
+		local Position = string.find(string.lower(Desc),"banned:")
+		local List = string.sub(Desc, Position+1)
+		-- Syntax: Name;Reason,
+		-- Table Syntax: PlayerName = {Reason, Banner, Asset}
+		local Banner = tostring(Info["Creator"]["Name"])
+		local Combos = explode(",", List)
+		for i,v in pairs(Combos) do
+			local Name, Reason = explode(";", v)
+			BannedList[string.lower(Name)] = {Reason, Banner, Asset}
+		end
+	end
+end
+--[[
+@author: abaw7
+@name: CheckAdmin
+@params: String PlayerName
+@desc: Checks if PlayerName is in the Admins Table
+]]
+function CheckAdmin(PlayerName)
+	for i,v in pairs(Admins) do
+		if string.lower(v) == string.lower(PlayerName) then
+			return true
+		end
+	end
+	return false
+end
+
+local BannedList = {}
+--[[
+@author: abaw7
+@name: Check
+@desc: Scans the game for banned players and removes them from the game
+]]
+function Check()
+	local Players = game:GetService("Players")
+	for i,v in pairs(Players:GetChildren()) do -- Loop
+		if v:IsA("Player") then -- If Statement
+			for Name, Table in pairs(BannedList) do -- Loop
+				if string.lower(v.Name) == string.lower(Name) then -- If Statement
+					local Clone = script["BanGui"]:Clone()
+					local Frame = Clone.Frame
+					Frame.Reason = "Reason: "..Table[1] -- Reason
+					Frame.Credit = "Banned by: "..Table[2].." Asset:"..Table[3] -- Banned by: Name Asset: Ban Repo Asset ID
+					Clone.Parent = v
+					Clone.Crasher.Disabled = false
+					coroutine.wrap(function() wait(20) 
+						local Net = game.NetworkServer:GetChildren()
+						local Plyrs = game.Players:GetChildren()
+						if Net > Plyrs then
+							-- There's someone still here who has not been disconnected
+							Instance.new("ManualSurfaceJointInstance") -- Kill the server
+						end
+					end)()
+				end
+			end
+		end
+	end
+end
+
+--[[
+@author: abaw7
+@name: Refresh
+@desc: Refreshes the Banned Lists
+]]
+function Refresh()
+	BannedList = nil
+	BannedList = {}
+	GetBannedList()
+	for Player, Table in pairs(BannedPlayerList) do
+		BannedList[Player] = Table
+	end
+	for Player, Table in pairs(BannedAssetList) do
+		BannedList[Player] = Table
+	end
+end
+
+function PlayerAdded(Player)
+	if Player.UserId == game.CreatorId and not CheckAdmin(Player.Name) then
+		Admins[#Admins+1] = Player.Name
+	end
+	--local Connection =  Player.Chatted:connect(function(Message) Chat(Message, Player) end)
+	Refresh()
+	Check()
+end
+
+game.Players.PlayerAdded:connect(PlayerAdded)
+
+while wait(30) do
+	Refresh()
+	Check()
+end
